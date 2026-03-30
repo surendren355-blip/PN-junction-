@@ -1,0 +1,98 @@
+import streamlit as st
+import numpy as np
+import plotly.graph_objects as go
+import pandas as pd
+
+# Page config
+st.set_page_config(page_title="PN Junction Virtual Lab", layout="centered")
+
+# Title
+st.title("🔬 PN Junction Diode Virtual Lab")
+st.markdown("Simulate and analyze **V-I characteristics** of a PN junction diode.")
+
+# Sidebar Inputs
+st.sidebar.header("⚙️ Parameters")
+
+Is = st.sidebar.number_input("Saturation Current (Is) [A]", value=1e-12, format="%.2e")
+T = st.sidebar.slider("Temperature (K)", 250, 400, 300)
+eta = st.sidebar.slider("Ideality Factor (η)", 1.0, 2.0, 1.0)
+
+# Constants
+k = 1.38e-23   # Boltzmann constant
+q = 1.6e-19    # Electron charge
+Vt = (k * T) / q
+
+st.sidebar.info(f"Thermal Voltage (Vt): {Vt:.4f} V")
+
+# Mode selection
+mode = st.radio("Select Bias Mode:", ["Forward Bias", "Reverse Bias", "Both"])
+
+# Voltage range
+if mode == "Forward Bias":
+    V = np.linspace(0, 0.8, 200)
+elif mode == "Reverse Bias":
+    V = np.linspace(-10, 0, 200)
+else:
+    V = np.linspace(-10, 0.8, 400)
+
+# Shockley Diode Equation
+I = Is * (np.exp(V / (eta * Vt)) - 1)
+
+# Plot using Plotly (Streamlit-friendly)
+fig = go.Figure()
+
+fig.add_trace(go.Scatter(
+    x=V,
+    y=I,
+    mode='lines',
+    name='Diode Curve'
+))
+
+fig.update_layout(
+    title="V-I Characteristics of PN Junction Diode",
+    xaxis_title="Voltage (V)",
+    yaxis_title="Current (A)",
+    template="plotly_white"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# Observations
+st.subheader("📊 Observations")
+st.write("""
+- Forward bias → exponential increase in current  
+- Reverse bias → very small leakage current  
+- Higher temperature → higher current  
+""")
+
+# Cut-in voltage detection
+cut_in_voltage = None
+for v, i in zip(V, I):
+    if i > 1e-3:
+        cut_in_voltage = v
+        break
+
+if cut_in_voltage:
+    st.success(f"Estimated Cut-in Voltage: {cut_in_voltage:.3f} V")
+else:
+    st.warning("Cut-in voltage not reached in selected range.")
+
+# Data table
+df = pd.DataFrame({
+    "Voltage (V)": V,
+    "Current (A)": I
+})
+
+st.subheader("📄 Data Preview")
+st.dataframe(df.head())
+
+# Download CSV
+st.subheader("⬇️ Download Data")
+csv = df.to_csv(index=False).encode('utf-8')
+
+st.download_button(
+    label="Download CSV",
+    data=csv,
+    file_name="pn_diode_data.csv",
+    mime='text/csv'
+)
